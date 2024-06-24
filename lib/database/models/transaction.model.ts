@@ -5,7 +5,7 @@ const TransactionSchema = new Schema({
     type: Date,
     default: Date.now,
   },
-  stripeId: {
+  transactionId: {
     type: String,
     required: true,
     unique: true,
@@ -23,6 +23,9 @@ const TransactionSchema = new Schema({
   buyer: {
     type: Schema.Types.ObjectId,
     ref: "User",
+  },
+  promoCode: {
+    type: String,
   },
 });
 
