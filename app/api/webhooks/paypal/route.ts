@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 const webhookId = process.env.PAYPAL_WEBHOOK_ID!;
+const paypalSecret = process.env.PAYPAL_CLIENT_SECRET!;
 
 export async function POST(req: Request) {
   console.log("Webhook received");
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
     const paypalTransmissionId = headersList.get("paypal-transmission-id");
     const paypalTransmissionTime = headersList.get("paypal-transmission-time");
     console.log("webhook:", webhookId);
+    console.log("paypal scr:", paypalSecret);
+
     if (!webhookId) {
       console.error("PAYPAL_WEBHOOK_ID is not defined");
       return NextResponse.json(
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
 
     // Verify the PayPal signature
     const verifiedSignature = crypto
-      .createHmac("sha256", webhookId)
+      .createHmac("sha256", paypalSecret)
       .update(
         `${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}|${body}`
       )
