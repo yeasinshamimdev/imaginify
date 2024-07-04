@@ -2,49 +2,23 @@ import { createTransaction } from "@/lib/actions/transaction.action";
 import { updateCredits } from "@/lib/actions/user.actions";
 import { connectToDatabase } from "@/lib/database/mongoose";
 import crypto from "crypto";
-import https from "https";
+import mongoose from "mongoose";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 const webhookId = process.env.PAYPAL_WEBHOOK_ID!;
-const paypalSecret = process.env.PAYPAL_CLIENT_SECRET!;
-
-async function verifyPayPalSignature(
-  transmissionId: string,
-  transmissionTime: string,
-  webhookId: string,
-  eventBody: string,
-  actualSignature: string,
-  certUrl: string
-): Promise<boolean> {
-  const verificationString = `${transmissionId}|${transmissionTime}|${webhookId}|${crypto
-    .createHash("sha256")
-    .update(eventBody)
-    .digest("hex")}`;
-
-  return new Promise((resolve, reject) => {
-    https
-      .get(certUrl, (res) => {
-        let data = "";
-        res.on("data", (chunk) => {
-          data += chunk;
-        });
-        res.on("end", () => {
-          const verify = crypto.createVerify("sha256");
-          verify.update(verificationString);
-          const isVerified = verify.verify(data, actualSignature, "base64");
-          resolve(isVerified);
-        });
-      })
-      .on("error", reject);
-  });
-}
 
 export async function POST(req: Request) {
   console.log("Webhook received");
 
   try {
-    const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+    const headersList = headers();
+    const paypalSignature = headersList.get("paypal-transmission-sig");
+    const paypalCertUrl = headersList.get("paypal-cert-url");
+    const paypalTransmissionId = headersList.get("paypal-transmission-id");
+    const paypalTransmissionTime = headersList.get("paypal-transmission-time");
+    console.log("webhook:", webhookId);
+
     if (!webhookId) {
       console.error("PAYPAL_WEBHOOK_ID is not defined");
       return NextResponse.json(
@@ -53,37 +27,38 @@ export async function POST(req: Request) {
       );
     }
 
-    const headersList = headers();
-    const paypalSignature = headersList.get("paypal-transmission-sig");
-    const paypalCertUrl = headersList.get("paypal-cert-url");
-    const paypalTransmissionId = headersList.get("paypal-transmission-id");
-    const paypalTransmissionTime = headersList.get("paypal-transmission-time");
-
-    if (
-      !paypalSignature ||
-      !paypalCertUrl ||
-      !paypalTransmissionId ||
-      !paypalTransmissionTime
-    ) {
-      console.error("Missing required PayPal headers");
-      return NextResponse.json(
-        { error: "Missing required headers" },
-        { status: 400 }
-      );
-    }
-
-    const body = await req.text();
-
-    const isVerified = await verifyPayPalSignature(
+    console.log("Headers:", {
+      paypalSignature,
+      paypalCertUrl,
       paypalTransmissionId,
       paypalTransmissionTime,
-      webhookId,
-      body,
-      paypalSignature,
-      paypalCertUrl
+    });
+
+    const body = await req.text();
+    console.log("Webhook body:", body);
+    console.log(
+      "`${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}`: ",
+      `${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}`
     );
 
-    if (!isVerified) {
+    // Verify the PayPal signature
+    const verifiedSignature = crypto
+      .createHmac("sha256", webhookId)
+      .update(
+        paypalTransmissionId +
+          "|" +
+          paypalTransmissionTime +
+          "|" +
+          body +
+          "|" +
+          webhookId
+      )
+      .digest("base64");
+
+    console.log("Verified signature:", verifiedSignature);
+    console.log("Received signature:", paypalSignature);
+
+    if (verifiedSignature !== paypalSignature) {
       console.log("Invalid signature");
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
@@ -91,7 +66,7 @@ export async function POST(req: Request) {
     console.log("Signature verified");
 
     const event = JSON.parse(body);
-    console.log("Event type:", event.event_type);
+    console.log("Event type:", event);
 
     if (
       event.event_type === "CHECKOUT.ORDER.APPROVED" ||
@@ -100,39 +75,73 @@ export async function POST(req: Request) {
       await connectToDatabase();
 
       const order = event.resource;
-      console.log("Full order object:", JSON.stringify(order, null, 2));
+      console.log("Order details:", order);
 
-      let customId, plan, credits, buyerId, amount;
+      let customId, plan, credits, buyerId;
+      let orderAmount;
 
       if (event.event_type === "CHECKOUT.ORDER.APPROVED") {
         customId = order.purchase_units[0].custom_id;
-        amount = order.purchase_units[0]?.amount?.value;
-      } else if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+        orderAmount = order.purchase_units[0].amount.value;
+        console.log("from Checkout:", order.purchase_units[0]);
+      }
+      if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
         customId = order.custom_id;
-        amount = order.amount?.value;
+        orderAmount = order.amount.value;
+        console.log("from payment: ", order.custom_id);
       }
 
       console.log("Custom ID:", customId);
-      console.log("Extracted amount:", amount);
-
-      if (!customId || !amount || isNaN(parseFloat(amount))) {
-        console.error("Invalid or missing customId or amount");
-        return NextResponse.json(
-          { error: "Invalid transaction data" },
-          { status: 400 }
-        );
-      }
-
       [plan, credits, buyerId] = customId.split("|");
       console.log("Parsed data:", { plan, credits, buyerId });
 
-      const parsedAmount = parseFloat(amount);
+      // Start a database transaction
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        // Create transaction
+        const transaction = await createTransaction(
+          {
+            transactionId: order.id,
+            plan,
+            amount: parseFloat(orderAmount),
+            credits: parseInt(credits),
+            buyerId,
+          },
+          session
+        );
+
+        // Update user credits
+        const updatedUser = await updateCredits(
+          buyerId,
+          parseInt(credits),
+          session
+        );
+
+        // Commit the transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        console.log("Transaction created:", transaction);
+        console.log("Credits updated:", updatedUser);
+
+        return NextResponse.json(
+          { message: "Webhook processed successfully" },
+          { status: 200 }
+        );
+      } catch (error) {
+        // If an error occurs, abort the transaction
+        await session.abortTransaction();
+        session.endSession();
+        throw error;
+      }
 
       // Create transaction
       const transaction = await createTransaction({
         transactionId: order.id,
         plan,
-        amount: parsedAmount,
+        amount: parseFloat(orderAmount),
         credits: parseInt(credits),
         buyerId,
       });

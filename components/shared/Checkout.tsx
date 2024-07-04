@@ -6,7 +6,7 @@ import {
   PayPalButtons,
   PayPalScriptProvider,
 } from "@paypal/react-paypal-js";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "../ui/button";
 
 interface PromoCodes {
@@ -59,38 +59,29 @@ const Checkout = ({
     }
   };
 
-  const scriptRef = useRef<HTMLScriptElement | null>(null);
-
-  useEffect(() => {
-    // Load the PayPal script
-    const script = document.createElement("script");
-    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&currency=USD`;
-    script.async = true;
-    document.body.appendChild(script);
-
-    // Save the script reference
-    scriptRef.current = script;
-
-    return () => {
-      // Check if the script still exists before removing it
-      if (scriptRef.current && document.body.contains(scriptRef.current)) {
-        document.body.removeChild(scriptRef.current);
-      }
-    };
-  }, []);
-
   const handleApprove = async (data: any, actions: any) => {
-    const order = await actions.order.capture();
-    console.log("Payment successful", order);
+    try {
+      const order = await actions.order.capture();
+      console.log("Payment successful", order);
 
-    toast({
-      title: "Payment successful",
-      description: `You've purchased ${credits} credits.`,
-      duration: 5000,
-      className: "success-toast",
-    });
+      toast({
+        title: "Payment successful",
+        description: `You've purchased ${credits} credits.`,
+        duration: 5000,
+        className: "success-toast",
+      });
 
-    // You can add additional logic here, such as updating the UI or redirecting the user
+      // Additional logic here...
+    } catch (error) {
+      console.error("Payment failed:", error);
+      toast({
+        title: "Payment failed",
+        description:
+          "There was an error processing your payment. Please try again.",
+        duration: 5000,
+        className: "error-toast",
+      });
+    }
   };
 
   return (
@@ -117,7 +108,9 @@ const Checkout = ({
               Apply Promo Code
             </Button>
             <PayPalScriptProvider
-              options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID! }}
+              options={{
+                clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
+              }}
             >
               <PayPalButtons
                 fundingSource={FUNDING.PAYPAL}

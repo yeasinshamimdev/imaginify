@@ -1,10 +1,10 @@
 "use server";
 
-import { redirect } from 'next/navigation';
-import { handleError } from '../utils';
-import { connectToDatabase } from '../database/mongoose';
-import Transaction from '../database/models/transaction.model';
-import { updateCredits } from './user.actions';
+import { ClientSession } from "mongoose";
+import { redirect } from "next/navigation";
+import Transaction from "../database/models/transaction.model";
+import { connectToDatabase } from "../database/mongoose";
+import { handleError } from "../utils";
 
 interface CheckoutTransactionParams {
   plan: string;
@@ -27,18 +27,25 @@ export async function checkoutCredits(transaction: CheckoutTransactionParams) {
   redirect(successUrl);
 }
 
-export async function createTransaction(transaction: CreateTransactionParams) {
+export async function createTransaction(
+  transaction: CreateTransactionParams,
+  session?: ClientSession
+) {
   try {
     await connectToDatabase();
 
     // Create a new transaction with a buyerId and promoCode
-    const newTransaction = await Transaction.create({
-      ...transaction, buyer: transaction.buyerId
-    });
+    const newTransaction = await Transaction.create(
+      [
+        {
+          ...transaction,
+          buyer: transaction.buyerId,
+        },
+      ],
+      { session }
+    );
 
-    await updateCredits(transaction.buyerId, transaction.credits);
-
-    return JSON.parse(JSON.stringify(newTransaction));
+    return JSON.parse(JSON.stringify(newTransaction[0]));
   } catch (error) {
     handleError(error);
   }
