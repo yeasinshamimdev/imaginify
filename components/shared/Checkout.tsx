@@ -62,7 +62,6 @@ const Checkout = ({
   const handleApprove = async (data: any, actions: any) => {
     try {
       const order = await actions.order.capture();
-      console.log("Payment successful", order);
 
       toast({
         title: "Payment successful",
