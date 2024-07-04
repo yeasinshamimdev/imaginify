@@ -5,16 +5,25 @@ import crypto from "crypto";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
-const webhookId = process.env.NEXT_PUBLIC_PAYPAL_WEBHOOK_ID!;
+const webhookId = process.env.PAYPAL_WEBHOOK_ID!;
 
 export async function POST(req: Request) {
   console.log("Webhook received");
+
   try {
     const headersList = headers();
     const paypalSignature = headersList.get("paypal-transmission-sig");
     const paypalCertUrl = headersList.get("paypal-cert-url");
     const paypalTransmissionId = headersList.get("paypal-transmission-id");
     const paypalTransmissionTime = headersList.get("paypal-transmission-time");
+    console.log("webhook:", webhookId);
+    if (!webhookId) {
+      console.error("PAYPAL_WEBHOOK_ID is not defined");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
 
     console.log("Headers:", {
       paypalSignature,
