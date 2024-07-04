@@ -5,7 +5,7 @@ import { handleError } from "@/lib/utils";
 import crypto from "crypto";
 import { NextApiRequest, NextApiResponse } from "next";
 
-const webhookId = process.env.NEXT_PUBLIC_PAYPAL_WEBHOOK_ID!;
+const webhookId = process.env.PAYPAL_WEBHOOK_ID!;
 const paypalClientId = process.env.PAYPAL_CLIENT_ID!;
 const paypalSecret = process.env.PAYPAL_CLIENT_SECRET!;
 
