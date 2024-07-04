@@ -13,5 +13,177 @@
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils"
-  }
+  },
+  "id": "WH-9GK54857BN163731F-04U661531M577400A",
+  "event_version": "1.0",
+  "create_time": "2024-07-04T14:40:52.325Z",
+  "resource_type": "checkout-order",
+  "resource_version": "2.0",
+  "event_type": "CHECKOUT.ORDER.APPROVED",
+  "summary": "An order has been approved by buyer",
+  "resource": {
+    "update_time": "2024-07-04T14:40:48Z",
+    "create_time": "2024-07-04T14:38:47Z",
+    "purchase_units": [
+      {
+        "reference_id": "default",
+        "amount": { "currency_code": "USD", "value": "9.99" },
+        "payee": {
+          "email_address": "sb-hjdcq28849536@business.example.com",
+          "merchant_id": "NZF88LTKF6W2E"
+        },
+        "custom_id": "Pro Package|150|6679daec2d39c94c43feb8c2",
+        "shipping": {
+          "name": { "full_name": "John Doe" },
+          "address": {
+            "address_line_1": "Free Trade Zone",
+            "admin_area_2": "Dubai",
+            "postal_code": "971",
+            "country_code": "AE"
+          }
+        },
+        "payments": {
+          "captures": [
+            {
+              "id": "7GT30306MK666763J",
+              "status": "COMPLETED",
+              "amount": { "currency_code": "USD", "value": "9.99" },
+              "final_capture": true,
+              "seller_protection": {
+                "status": "ELIGIBLE",
+                "dispute_categories": [
+                  "ITEM_NOT_RECEIVED",
+                  "UNAUTHORIZED_TRANSACTION"
+                ]
+              },
+              "seller_receivable_breakdown": {
+                "gross_amount": { "currency_code": "USD", "value": "9.99" },
+                "paypal_fee": { "currency_code": "USD", "value": "0.64" },
+                "net_amount": { "currency_code": "USD", "value": "9.35" }
+              },
+              "custom_id": "Pro Package|150|6679daec2d39c94c43feb8c2",
+              "links": [
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/captures/7GT30306MK666763J",
+                  "rel": "self",
+                  "method": "GET"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/captures/7GT30306MK666763J/refund",
+                  "rel": "refund",
+                  "method": "POST"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/checkout/orders/17T76540JS337950W",
+                  "rel": "up",
+                  "method": "GET"
+                }
+              ],
+              "create_time": "2024-07-04T14:40:48Z",
+              "update_time": "2024-07-04T14:40:48Z"
+            }
+          ]
+        },
+        "risk_assessment": { "score": 10, "reasons": ["LOW_UNAUTHORIZED_RISK"] }
+      }
+    ],
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/17T76540JS337950W",
+        "rel": "self",
+        "method": "GET"
+      }
+    ],
+    "id": "17T76540JS337950W",
+    "payment_source": {
+      "paypal": {
+        "email_address": "sb-3sc1m28848768@personal.example.com",
+        "account_id": "A9C98ECPQABBJ",
+        "account_status": "VERIFIED",
+        "name": { "given_name": "John", "surname": "Doe" },
+        "address": { "country_code": "AE" }
+      }
+    },
+    "intent": "CAPTURE",
+    "payer": {
+      "name": { "given_name": "John", "surname": "Doe" },
+      "email_address": "sb-3sc1m28848768@personal.example.com",
+      "payer_id": "A9C98ECPQABBJ",
+      "address": { "country_code": "AE" }
+    },
+    "status": "COMPLETED"
+  },
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-9GK54857BN163731F-04U661531M577400A",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-9GK54857BN163731F-04U661531M577400A/resend",
+      "rel": "resend",
+      "method": "POST"
+    }
+  ],
+  "id": "WH-8UA03489GK615670W-8NG44861V11203000",
+  "event_version": "1.0",
+  "create_time": "2024-07-04T14:40:52.563Z",
+  "resource_type": "capture",
+  "resource_version": "2.0",
+  "event_type": "PAYMENT.CAPTURE.COMPLETED",
+  "summary": "Payment completed for $ 9.99 USD",
+  "resource": {
+    "payee": {
+      "email_address": "sb-hjdcq28849536@business.example.com",
+      "merchant_id": "NZF88LTKF6W2E"
+    },
+    "amount": { "value": "9.99", "currency_code": "USD" },
+    "seller_protection": {
+      "dispute_categories": ["ITEM_NOT_RECEIVED", "UNAUTHORIZED_TRANSACTION"],
+      "status": "ELIGIBLE"
+    },
+    "supplementary_data": {
+      "related_ids": { "order_id": "17T76540JS337950W" }
+    },
+    "update_time": "2024-07-04T14:40:48Z",
+    "create_time": "2024-07-04T14:40:48Z",
+    "final_capture": true,
+    "seller_receivable_breakdown": {
+      "paypal_fee": { "value": "0.64", "currency_code": "USD" },
+      "gross_amount": { "value": "9.99", "currency_code": "USD" },
+      "net_amount": { "value": "9.35", "currency_code": "USD" }
+    },
+    "custom_id": "Pro Package|150|6679daec2d39c94c43feb8c2",
+    "links": [
+      {
+        "method": "GET",
+        "rel": "self",
+        "href": "https://api.sandbox.paypal.com/v2/payments/captures/7GT30306MK666763J"
+      },
+      {
+        "method": "POST",
+        "rel": "refund",
+        "href": "https://api.sandbox.paypal.com/v2/payments/captures/7GT30306MK666763J/refund"
+      },
+      {
+        "method": "GET",
+        "rel": "up",
+        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/17T76540JS337950W"
+      }
+    ],
+    "id": "7GT30306MK666763J",
+    "status": "COMPLETED"
+  },
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-8UA03489GK615670W-8NG44861V11203000",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-8UA03489GK615670W-8NG44861V11203000/resend",
+      "rel": "resend",
+      "method": "POST"
+    }
+  ]
 }

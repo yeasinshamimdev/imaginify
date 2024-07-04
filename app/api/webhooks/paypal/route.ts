@@ -2,45 +2,13 @@ import { createTransaction } from "@/lib/actions/transaction.action";
 import { updateCredits } from "@/lib/actions/user.actions";
 import { connectToDatabase } from "@/lib/database/mongoose";
 import crypto from "crypto";
-import https from "https";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
-const webhookId = process.env.PAYPAL_WEBHOOK_ID!;
-
-async function verifyPayPalSignature(
-  transmissionId: string,
-  transmissionTime: string,
-  webhookId: string,
-  eventBody: string,
-  actualSignature: string,
-  certUrl: string
-): Promise<boolean> {
-  const verificationString = `${transmissionId}|${transmissionTime}|${webhookId}|${crypto
-    .createHash("sha256")
-    .update(eventBody)
-    .digest("hex")}`;
-
-  return new Promise((resolve, reject) => {
-    https
-      .get(certUrl, (res) => {
-        let data = "";
-        res.on("data", (chunk) => {
-          data += chunk;
-        });
-        res.on("end", () => {
-          const verify = crypto.createVerify("sha256");
-          verify.update(verificationString);
-          const isVerified = verify.verify(data, actualSignature, "base64");
-          resolve(isVerified);
-        });
-      })
-      .on("error", reject);
-  });
-}
+const webhookId = process.env.NEXT_PUBLIC_PAYPAL_WEBHOOK_ID!;
 
 export async function POST(req: Request) {
-  console.log("PayPal webhook received");
+  console.log("Webhook received");
   try {
     const headersList = headers();
     const paypalSignature = headersList.get("paypal-transmission-sig");
@@ -48,57 +16,67 @@ export async function POST(req: Request) {
     const paypalTransmissionId = headersList.get("paypal-transmission-id");
     const paypalTransmissionTime = headersList.get("paypal-transmission-time");
 
-    if (
-      !paypalSignature ||
-      !paypalCertUrl ||
-      !paypalTransmissionId ||
-      !paypalTransmissionTime
-    ) {
-      console.error("Missing required PayPal headers");
-      return NextResponse.json(
-        { error: "Missing required headers" },
-        { status: 400 }
-      );
-    }
+    console.log("Headers:", {
+      paypalSignature,
+      paypalCertUrl,
+      paypalTransmissionId,
+      paypalTransmissionTime,
+    });
 
     const body = await req.text();
     console.log("Webhook body:", body);
-
-    const isVerified = await verifyPayPalSignature(
-      paypalTransmissionId,
-      paypalTransmissionTime,
-      webhookId,
-      body,
-      paypalSignature,
-      paypalCertUrl
+    console.log(
+      "`${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}`: ",
+      `${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}`
     );
 
-    if (!isVerified) {
-      console.error("Invalid signature");
+    // Verify the PayPal signature
+    const verifiedSignature = crypto
+      .createHmac("sha256", webhookId)
+      .update(
+        `${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}|${body}`
+      )
+      .digest("base64");
+
+    console.log("Verified signature:", verifiedSignature);
+    console.log("Received signature:", paypalSignature);
+
+    if (verifiedSignature !== paypalSignature) {
+      console.log("Invalid signature");
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
     console.log("Signature verified");
 
     const event = JSON.parse(body);
-    console.log("Event type:", event.event_type);
+    console.log("Event type:", event);
 
-    if (event.event_type === "CHECKOUT.ORDER.APPROVED") {
+    if (
+      event.event_type === "CHECKOUT.ORDER.APPROVED" ||
+      event.event_type === "PAYMENT.CAPTURE.COMPLETED"
+    ) {
       await connectToDatabase();
 
       const order = event.resource;
       console.log("Order details:", order);
 
-      const customId = order.purchase_units[0].custom_id;
+      let customId, plan, credits, buyerId;
+
+      if (event.event_type === "CHECKOUT.ORDER.APPROVED") {
+        customId = order.purchase_units[0].custom_id;
+      } else if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+        customId = order.custom_id;
+      }
+
       console.log("Custom ID:", customId);
-      const [plan, credits, buyerId] = customId.split("|");
+      [plan, credits, buyerId] = customId.split("|");
       console.log("Parsed data:", { plan, credits, buyerId });
 
       // Create transaction
       const transaction = await createTransaction({
         transactionId: order.id,
         plan,
-        amount: parseFloat(order.purchase_units[0].amount.value),
+        amount: parseFloat(order.amount.value),
         credits: parseInt(credits),
         buyerId,
       });
