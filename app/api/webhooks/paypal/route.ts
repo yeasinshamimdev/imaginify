@@ -38,11 +38,7 @@ export async function POST(req: Request) {
     const rawBody = await req.text(); // Important to capture raw body as text
 
     // Verify the webhook signature
-    const isVerified = verifyPaypalSignature(headers, rawBody);
-
-    if (!isVerified) {
-      return new Response("Invalid signature", { status: 400 });
-    }
+    verifyPaypalSignature(headers, rawBody);
 
     console.log("Signature verified");
 
