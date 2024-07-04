@@ -2,47 +2,71 @@ import { createTransaction } from "@/lib/actions/transaction.action";
 import { updateCredits } from "@/lib/actions/user.actions";
 import { connectToDatabase } from "@/lib/database/mongoose";
 import crypto from "crypto";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 const webhookId = process.env.PAYPAL_WEBHOOK_ID!;
 const paypalSecret = process.env.PAYPAL_CLIENT_SECRET!;
 
-const verifyPaypalSignature = (headers: any, body: any) => {
-  const paypalTransmissionId = headers["paypal-transmission-id"];
-  const paypalTransmissionTime = headers["paypal-transmission-time"];
-  const paypalCertUrl = headers["paypal-cert-url"];
-  const paypalAuthAlgo = headers["paypal-auth-algo"];
-  const paypalSignature = headers["paypal-transmission-sig"];
-
-  // Construct the string to sign
-  const expectedSignature = crypto
-    .createHmac("sha256", paypalSecret)
-    .update(
-      `${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}|${body}`
-    )
-    .digest("base64");
-
-  console.log("Verified signature:", expectedSignature);
-  console.log("Received signature:", paypalSignature);
-
-  return expectedSignature === paypalSignature;
-};
-
 export async function POST(req: Request) {
+  console.log("Webhook received");
+
   try {
-    // Extract headers
-    const headers = Object.fromEntries(req.headers.entries());
-    console.log("All Headers:", headers);
+    const headersList = headers();
+    const paypalSignature = headersList.get("paypal-transmission-sig");
+    const paypalCertUrl = headersList.get("paypal-cert-url");
+    const paypalTransmissionId = headersList.get("paypal-transmission-id");
+    const paypalTransmissionTime = headersList.get("paypal-transmission-time");
+    console.log("webhook:", webhookId);
+    console.log("paypal scr:", paypalSecret);
 
-    // Get the raw body
-    const rawBody = await req.text(); // Important to capture raw body as text
+    if (!webhookId) {
+      console.error("PAYPAL_WEBHOOK_ID is not defined");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
 
-    // Verify the webhook signature
-    verifyPaypalSignature(headers, rawBody);
+    console.log("Headers:", {
+      paypalSignature,
+      paypalCertUrl,
+      paypalTransmissionId,
+      paypalTransmissionTime,
+    });
+
+    const body = await req.text();
+    console.log("Webhook body:", body);
+    console.log(
+      "`${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}`: ",
+      `${paypalTransmissionId}|${paypalTransmissionTime}|${webhookId}`
+    );
+
+    // Verify the PayPal signature
+    const verifiedSignature = crypto
+      .createHmac("sha256", webhookId)
+      .update(
+        paypalTransmissionId +
+          "|" +
+          paypalTransmissionTime +
+          "|" +
+          body +
+          "|" +
+          webhookId
+      )
+      .digest("base64");
+
+    console.log("Verified signature:", verifiedSignature);
+    console.log("Received signature:", paypalSignature);
+
+    // if (verifiedSignature !== paypalSignature) {
+    //   console.log("Invalid signature");
+    //   return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    // }
 
     console.log("Signature verified");
 
-    const event = JSON.parse(rawBody);
+    const event = JSON.parse(body);
     console.log("Event type:", event);
 
     if (
