@@ -82,8 +82,10 @@ export async function POST(req: Request) {
 
       if (event.event_type === "CHECKOUT.ORDER.APPROVED") {
         customId = order.purchase_units[0].custom_id;
+        console.log("from Checkout:", order.purchase_units[0]);
       } else if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
         customId = order.custom_id;
+        console.log("from payment: ", order.custom_id);
       }
 
       console.log("Custom ID:", customId);
@@ -94,7 +96,7 @@ export async function POST(req: Request) {
       const transaction = await createTransaction({
         transactionId: order.id,
         plan,
-        amount: parseFloat(order.amount.value),
+        amount: parseFloat(order?.amount?.value),
         credits: parseInt(credits),
         buyerId,
       });
