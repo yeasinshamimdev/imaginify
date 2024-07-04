@@ -1,11 +1,9 @@
 import { authMiddleware } from "@clerk/nextjs";
-  
+
 export default authMiddleware({
-  publicRoutes: ['/api/webhooks/clerk']
+  publicRoutes: ["/api/webhooks/clerk", "/api/webhooks/paypal"],
 });
- 
+
 export const config = {
-  matcher: [
-    "/((?!.+\\.[\\w]+$|_next).*)", "/(api|trpc)(.*)"
-  ]
+  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/(api|trpc)(.*)"],
 };

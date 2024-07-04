@@ -1,7 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  FUNDING,
+  PayPalButtons,
+  PayPalScriptProvider,
+} from "@paypal/react-paypal-js";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 
 interface PromoCodes {
@@ -22,7 +27,6 @@ const Checkout = ({
   const { toast } = useToast();
   const [promoCode, setPromoCode] = useState("");
   const [discountedAmount, setDiscountedAmount] = useState(amount);
-  const [checkoutLink, setCheckoutLink] = useState("https://www.sandbox.paypal.com/ncp/payment/F6JZVGEAL5L6C");
   const [isPromoCodeValid, setIsPromoCodeValid] = useState(true);
 
   const promoCodes: PromoCodes = {
@@ -37,7 +41,6 @@ const Checkout = ({
   const applyPromoCode = () => {
     if (promoCodes[promoCode]) {
       setDiscountedAmount(amount * 0.75);
-      setCheckoutLink(promoCodes[promoCode]);
       setIsPromoCodeValid(true);
       toast({
         title: "Promo code applied!",
@@ -56,15 +59,38 @@ const Checkout = ({
     }
   };
 
-  const handleCheckout = () => {
-    // Placeholder for PayPal button logic
-    window.location.href = checkoutLink;
+  const scriptRef = useRef<HTMLScriptElement | null>(null);
+
+  useEffect(() => {
+    // Load the PayPal script
+    const script = document.createElement("script");
+    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&currency=USD`;
+    script.async = true;
+    document.body.appendChild(script);
+
+    // Save the script reference
+    scriptRef.current = script;
+
+    return () => {
+      // Check if the script still exists before removing it
+      if (scriptRef.current && document.body.contains(scriptRef.current)) {
+        document.body.removeChild(scriptRef.current);
+      }
+    };
+  }, []);
+
+  const handleApprove = async (data: any, actions: any) => {
+    const order = await actions.order.capture();
+    console.log("Payment successful", order);
+
     toast({
-      title: "Redirecting to checkout",
-      description: "Proceeding to PayPal.",
+      title: "Payment successful",
+      description: `You've purchased ${credits} credits.`,
       duration: 5000,
-      className: "info-toast",
+      className: "success-toast",
     });
+
+    // You can add additional logic here, such as updating the UI or redirecting the user
   };
 
   return (
@@ -80,14 +106,38 @@ const Checkout = ({
               placeholder="Enter promo code"
               value={promoCode}
               onChange={handlePromoCodeChange}
-              className={`border rounded p-2 ${isPromoCodeValid ? '' : 'border-red-500'}`}
+              className={`border rounded p-2 ${
+                isPromoCodeValid ? "" : "border-red-500"
+              }`}
             />
-            <Button onClick={applyPromoCode} className="w-full rounded bg-purple-600 text-white">
+            <Button
+              onClick={applyPromoCode}
+              className="w-full rounded bg-purple-600 text-white"
+            >
               Apply Promo Code
             </Button>
-            <Button onClick={handleCheckout} className="w-full rounded bg-blue-600 text-white mt-2">
-              Checkout with PayPal
-            </Button>
+            <PayPalScriptProvider
+              options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID! }}
+            >
+              <PayPalButtons
+                fundingSource={FUNDING.PAYPAL}
+                createOrder={(data, actions) => {
+                  return actions.order.create({
+                    intent: "CAPTURE",
+                    purchase_units: [
+                      {
+                        amount: {
+                          currency_code: "USD",
+                          value: amount.toString(),
+                        },
+                        custom_id: `${plan}|${credits}|${buyerId}`,
+                      },
+                    ],
+                  });
+                }}
+                onApprove={handleApprove}
+              />
+            </PayPalScriptProvider>
           </>
         )}
       </div>
