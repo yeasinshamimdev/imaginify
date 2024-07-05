@@ -51,13 +51,22 @@ export async function POST(req: Request) {
 
     const event = JSON.parse(body);
 
-    if (event.event_type === "PAYMENT.SALE.COMPLETED") {
+    if (
+      event.event_type === "CHECKOUT.ORDER.APPROVED" ||
+      event.event_type === "PAYMENT.CAPTURE.COMPLETED"
+    ) {
       await connectToDatabase();
       const order = event.resource;
       let customId, plan, credits, buyerId, orderAmount;
 
-      customId = order.purchase_units[0].custom_id;
-      orderAmount = order.purchase_units[0].amount.value;
+      if (event.event_type === "CHECKOUT.ORDER.APPROVED") {
+        customId = order.purchase_units[0].custom_id;
+        orderAmount = order.purchase_units[0].amount.value;
+      }
+      if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+        customId = order.custom_id;
+        orderAmount = order.amount.value;
+      }
 
       [plan, credits, buyerId] = customId.split("|");
 
